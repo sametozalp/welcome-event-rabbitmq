@@ -11,6 +11,9 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Configuration
 public class RabbitMQConfig {
 
@@ -18,10 +21,33 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "user-registration-exchange";
     public static final String ROUTING_KEY = "user.created";
 
+    public static final String DLX_NAME = "dead-letter-exchange";
+    public static final String DLQ_NAME = "dead-letter-queue";
+    public static final String DL_ROUTING_KEY = "dl.failed.user.created";
+
+    // dlq
+    @Bean
+    DirectExchange deadLetterExchange() {
+        return new DirectExchange(DLX_NAME);
+    }
+
+    @Bean
+    public Queue deadLetterQueue() {
+        return new Queue(DLQ_NAME);
+    }
+
+    @Bean
+    public Binding deadLetterBinding(Queue deadLetterQueue, DirectExchange deadLetterExchange) {
+        return BindingBuilder.bind(deadLetterQueue).to(deadLetterExchange).with(DL_ROUTING_KEY);
+    }
+
     // queue
     @Bean
     public Queue queue() {
-        return new Queue(QUEUE_NAME, false); // false: sunucu kapanırsa kuyruk silinir (test için)
+        Map<String, Object> args = new HashMap<>();
+        args.put("x-dead-letter-exchange", DLX_NAME);
+        args.put("x-dead-letter-routing-key", DL_ROUTING_KEY);
+        return new Queue(QUEUE_NAME, true, false, false, args);
     }
 
     // exchange
